@@ -2,38 +2,34 @@
 
 import { Database, Zap, CheckCircle2, TrendingUp, Flame } from 'lucide-react';
 
-export default function StatsCards({ keywords = [], category = 'image' }) {
+export default function StatsCards({ keywords = [] }) {
   const total = keywords.length;
-  const isVideo = category === 'video';
 
-  // Low competition: <1k (Video) or <10k (Image/Vector)
-  const lowComp = keywords.filter((k) => {
-    const isVid = (k.category || category) === 'video';
-    const thresh = isVid ? 1000 : 10000;
-    return (
+  // Low competition: < 10.000 (<10k)
+  const lowComp = keywords.filter(
+    (k) =>
       k.result_count !== null &&
       k.result_count !== undefined &&
       k.result_count > 0 &&
-      k.result_count < thresh
-    );
-  }).length;
+      k.result_count < 10000
+  ).length;
 
-  // Medium competition: 1k-10k (Video) or 10k-50k (Image/Vector)
-  const medComp = keywords.filter((k) => {
-    if (k.result_count === null || k.result_count === undefined) return false;
-    const isVid = (k.category || category) === 'video';
-    const low = isVid ? 1000 : 10000;
-    const high = isVid ? 10000 : 50000;
-    return k.result_count >= low && k.result_count <= high;
-  }).length;
+  // Medium competition: 10.000 – 50.000 (10k-50k)
+  const medComp = keywords.filter(
+    (k) =>
+      k.result_count !== null &&
+      k.result_count !== undefined &&
+      k.result_count >= 10000 &&
+      k.result_count <= 50000
+  ).length;
 
-  // High competition: >10k (Video) or >50k (Image/Vector)
-  const highComp = keywords.filter((k) => {
-    if (k.result_count === null || k.result_count === undefined) return false;
-    const isVid = (k.category || category) === 'video';
-    const high = isVid ? 10000 : 50000;
-    return k.result_count > high;
-  }).length;
+  // High competition: > 50.000 (>50k)
+  const highComp = keywords.filter(
+    (k) =>
+      k.result_count !== null &&
+      k.result_count !== undefined &&
+      k.result_count > 50000
+  ).length;
 
   // Used count
   const usedCount = keywords.filter((k) => k.is_used).length;
@@ -61,7 +57,7 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
           <div className="flex items-baseline gap-1 mt-0.5">
             <h3 className="text-xl sm:text-2xl font-bold text-emerald-600">{lowComp}</h3>
             <span className="text-[10px] sm:text-[11px] font-medium text-slate-400">
-              {isVideo ? '(<1k)' : '(<10k)'}
+              (&lt;10k)
             </span>
           </div>
         </div>
@@ -77,7 +73,7 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
           <div className="flex items-baseline gap-1 mt-0.5">
             <h3 className="text-xl sm:text-2xl font-bold text-amber-600">{medComp}</h3>
             <span className="text-[10px] sm:text-[11px] font-medium text-slate-400">
-              {isVideo ? '(1k-10k)' : '(10k-50k)'}
+              (10k-50k)
             </span>
           </div>
         </div>
@@ -93,7 +89,7 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
           <div className="flex items-baseline gap-1 mt-0.5">
             <h3 className="text-xl sm:text-2xl font-bold text-rose-600">{highComp}</h3>
             <span className="text-[10px] sm:text-[11px] font-medium text-slate-400">
-              {isVideo ? '(>10k)' : '(>50k)'}
+              (&gt;50k)
             </span>
           </div>
         </div>
