@@ -12,7 +12,7 @@ let currentTabId = null;
 function getBackendUrl() {
   return new Promise((resolve) => {
     chrome.storage.local.get(['backendUrl'], (data) => {
-      resolve((data.backendUrl || 'http://localhost:5000').replace(/\/$/, ''));
+      resolve((data.backendUrl || 'https://keyword-database-assistant-production.up.railway.app').replace(/\/$/, ''));
     });
   });
 }
