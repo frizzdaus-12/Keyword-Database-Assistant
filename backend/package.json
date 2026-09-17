@@ -1,0 +1,28 @@
+{
+  "name": "data2pro-backend",
+  "version": "1.0.0",
+  "description": "Backend API, Playwright Scraper, and Gemini AI service for Data2Pro",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": [
+    "adobe-stock",
+    "keyword-research",
+    "playwright",
+    "scraper",
+    "gemini-ai"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^0.1.2",
+    "@supabase/supabase-js": "^2.48.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "playwright": "^1.50.1"
+  }
+}
