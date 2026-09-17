@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data2Pro Helper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      min-height: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      font-size: 13px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 14px;
+      color: white;
+      letter-spacing: -0.5px;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .header-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .header-text p {
+      font-size: 11px;
+      color: rgba(255,255,255,0.75);
+      margin-top: 1px;
+    }
+
+    .body { padding: 14px; }
+
+    .status-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+
+    .status-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #94a3b8;
+      margin-bottom: 5px;
+    }
+
+    .status-value {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e40af;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      flex-shrink: 0;
+    }
+
+    .status-dot.busy {
+      background: #f59e0b;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .setting-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #94a3b8;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #1e293b;
+      background: #f8fafc;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: #3b82f6;
+      background: white;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .toggle-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .toggle {
+      position: relative;
+      width: 38px;
+      height: 21px;
+    }
+
+    .toggle input { display: none; }
+
+    .slider {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #cbd5e1;
+      border-radius: 21px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .slider:before {
+      content: '';
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      background: white;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    input:checked + .slider { background: #2563eb; }
+    input:checked + .slider:before { transform: translateX(17px); }
+
+    .btn {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+      transition: all 0.15s;
+    }
+
+    .btn:hover { background: linear-gradient(135deg, #1d4ed8, #1e40af); }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .logs-card {
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 10px 12px;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .logs-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    .log-item {
+      font-size: 10.5px;
+      font-family: 'Courier New', monospace;
+      color: #94a3b8;
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      word-break: break-all;
+    }
+
+    .log-item:first-child { color: #86efac; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">D2P</div>
+    <div class="header-text">
+      <h1>Data2Pro Helper</h1>
+      <p>Adobe Stock Auto Sync Extension</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- Status -->
+    <div class="status-card">
+      <div class="status-label">Status Ekstensi</div>
+      <div class="status-value">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Memuat...</span>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="setting-card">
+      <label>Backend URL</label>
+      <input type="text" id="backendUrl" value="http://localhost:5000" placeholder="http://localhost:5000" />
+
+      <div class="toggle-row">
+        <span class="toggle-label">Auto Sync Otomatis</span>
+        <label class="toggle">
+          <input type="checkbox" id="autoSync" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Manual Sync Button -->
+    <button class="btn" id="syncBtn">
+      ⚡ Sinkronisasi Sekarang
+    </button>
+
+    <!-- Logs -->
+    <div class="logs-label">Log Aktivitas</div>
+    <div class="logs-card" id="logContainer">
+      <div class="log-item">Menunggu aktivitas...</div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

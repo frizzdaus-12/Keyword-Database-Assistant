@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Data2Pro - Adobe Stock Helper",
+  "version": "1.0.0",
+  "description": "Ekstensi pendamping Data2Pro untuk membaca jumlah pencarian keyword Adobe Stock secara akurat dan anti-blokir.",
+  "permissions": [
+    "tabs",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://stock.adobe.com/*",
+    "http://localhost:5000/*",
+    "https://*.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://stock.adobe.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Data2Pro Helper"
+  }
+}

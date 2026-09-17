@@ -18,8 +18,122 @@ router.get('/health', (req, res) => {
 });
 
 /**
+ * GET /api/keywords/pending
+ * Used by Chrome Extension to fetch keywords that need result_count
+ */
+router.get('/keywords/pending', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    let query = supabaseAdmin
+      .from('keywords')
+      .select('*')
+      .is('result_count', null)
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({
+      success: true,
+      count: data ? data.length : 0,
+      keywords: data || []
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/keywords/update-result
+ * Used by Chrome Extension to report scraped result_count
+ */
+router.post('/api/keywords/update-result', async (req, res) => {
+  try {
+    const { id, resultCount, searchUrl } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ error: 'Keyword ID is required' });
+    }
+
+    const updateData = {
+      result_count: typeof resultCount === 'number' ? resultCount : 0
+    };
+    if (searchUrl) {
+      updateData.search_url = searchUrl;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('keywords')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({
+      success: true,
+      message: 'Result count updated successfully',
+      keyword: data
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Also alias without /api prefix in router: POST /keywords/update-result
+ */
+router.post('/keywords/update-result', async (req, res) => {
+  try {
+    const { id, resultCount, searchUrl } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ error: 'Keyword ID is required' });
+    }
+
+    const updateData = {
+      result_count: typeof resultCount === 'number' ? resultCount : 0
+    };
+    if (searchUrl) {
+      updateData.search_url = searchUrl;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('keywords')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({
+      success: true,
+      message: 'Result count updated successfully',
+      keyword: data
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * POST /api/keywords/process
- * Accepts keywords list (max 50) and starts asynchronous background scraping job
+ * Accepts keywords list (max 50) and registers them to Supabase
  */
 router.post('/keywords/process', async (req, res) => {
   try {
@@ -60,7 +174,7 @@ router.post('/keywords/process', async (req, res) => {
     // Max 50 keywords per request for safety
     if (cleanedKeywords.length > 50) {
       return res.status(400).json({
-        error: 'Maksimal 50 keyword per sesi request untuk menghindari pemblokiran.'
+        error: 'Maksimal 50 keyword per sesi request.'
       });
     }
 
@@ -91,7 +205,7 @@ router.post('/keywords/process', async (req, res) => {
       });
     }
 
-    // 3. Start background job
+    // 3. Start background job (fallback / server-side worker)
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const jobState = await runScrapingJob(jobId, insertedRecords);
 
@@ -100,7 +214,7 @@ router.post('/keywords/process', async (req, res) => {
       jobId,
       totalKeywords: insertedRecords.length,
       status: jobState.status,
-      message: 'Permintaan berhasil didaftarkan. Proses scraping sedang berjalan di latar belakang.',
+      message: 'Keyword berhasil didaftarkan. Ekstensi Data2Pro atau background worker akan memproses jumlah pencarian.',
       items: insertedRecords
     });
   } catch (error) {
@@ -131,14 +245,13 @@ router.get('/jobs/:jobId', (req, res) => {
 
 /**
  * POST /api/keywords/:id/generate-variants
- * Generate 10 AI variations with Gemini 2.5 Flash for a specific keyword
+ * Generate 10 AI variations with Gemini for a specific keyword
  */
 router.post('/keywords/:id/generate-variants', async (req, res) => {
   try {
     const { id } = req.params;
     let { keyword, category } = req.body;
 
-    // If keyword/category not provided in body, fetch from database
     if (!keyword || !category) {
       const { data: kwRecord, error: kwError } = await supabaseAdmin
         .from('keywords')
