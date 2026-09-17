@@ -1,10 +1,9 @@
 // Data2Pro Background Service Worker
 let isProcessing = false;
 let currentTabId = null;
-let currentKeywordItem = null;
 let backendUrl = 'http://localhost:5000';
 
-// Initialize default settings
+// Initialize default settings on install
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     autoSync: true,
@@ -12,6 +11,25 @@ chrome.runtime.onInstalled.addListener(() => {
     status: 'Siap digunakan',
     logs: ['Ekstensi Data2Pro berhasil dipasang!']
   });
+
+  // Create alarm INSIDE onInstalled to avoid duplicate creation issues
+  chrome.alarms.create('checkPendingKeywords', { periodInMinutes: 1 });
+});
+
+// Also create alarm on startup (in case service worker restarts)
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.get('checkPendingKeywords', (alarm) => {
+    if (!alarm) {
+      chrome.alarms.create('checkPendingKeywords', { periodInMinutes: 1 });
+    }
+  });
+});
+
+// Ensure alarm exists when service worker wakes up
+chrome.alarms.get('checkPendingKeywords', (alarm) => {
+  if (!alarm) {
+    chrome.alarms.create('checkPendingKeywords', { periodInMinutes: 1 });
+  }
 });
 
 function addLog(message) {
@@ -30,7 +48,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Build search URL
 function buildSearchUrl(keyword, category) {
   const encoded = encodeURIComponent(keyword.trim());
   switch (category) {
@@ -44,27 +61,25 @@ function buildSearchUrl(keyword, category) {
   }
 }
 
-// Fetch pending keywords from Data2Pro Backend
 async function fetchPendingKeywords() {
   try {
     const data = await chrome.storage.local.get(['backendUrl']);
-    const baseUrl = data.backendUrl || backendUrl;
+    const baseUrl = (data.backendUrl || backendUrl).replace(/\/$/, '');
 
     const res = await fetch(`${baseUrl}/api/keywords/pending`);
     if (!res.ok) return [];
     const json = await res.json();
     return json.keywords || [];
   } catch (err) {
-    console.error('Failed to fetch pending keywords:', err);
+    console.error('Failed to fetch pending keywords:', err.message);
     return [];
   }
 }
 
-// Update result count to Backend
 async function updateKeywordResult(id, resultCount, searchUrl) {
   try {
     const data = await chrome.storage.local.get(['backendUrl']);
-    const baseUrl = data.backendUrl || backendUrl;
+    const baseUrl = (data.backendUrl || backendUrl).replace(/\/$/, '');
 
     const res = await fetch(`${baseUrl}/api/keywords/update-result`, {
       method: 'POST',
@@ -73,12 +88,11 @@ async function updateKeywordResult(id, resultCount, searchUrl) {
     });
     return res.ok;
   } catch (err) {
-    console.error('Failed to update keyword result:', err);
+    console.error('Failed to update keyword result:', err.message);
     return false;
   }
 }
 
-// Process single keyword queue
 async function processQueue() {
   if (isProcessing) return;
   isProcessing = true;
@@ -88,35 +102,29 @@ async function processQueue() {
     const pendingList = await fetchPendingKeywords();
 
     if (pendingList.length === 0) {
-      chrome.storage.local.set({ status: 'Tidak ada antrean baru (Semua sudah selesai)' });
+      chrome.storage.local.set({ status: 'Tidak ada antrean baru' });
       isProcessing = false;
       return;
     }
 
-    addLog(`Ditemukan ${pendingList.length} keyword pending. Memulai proses scraping...`);
+    addLog(`${pendingList.length} keyword pending ditemukan. Memulai...`);
 
     for (let i = 0; i < pendingList.length; i++) {
       const item = pendingList[i];
-      currentKeywordItem = item;
       const targetUrl = buildSearchUrl(item.keyword, item.category);
 
       chrome.storage.local.set({
-        status: `Sedang memproses (${i + 1}/${pendingList.length}): "${item.keyword}"`
+        status: `Memproses (${i + 1}/${pendingList.length}): "${item.keyword}"`
       });
       addLog(`Membuka: "${item.keyword}" (${item.category})...`);
 
-      // Open background tab (active: false so it doesn't interrupt the user)
-      const tab = await chrome.tabs.create({
-        url: targetUrl,
-        active: false
-      });
+      const tab = await chrome.tabs.create({ url: targetUrl, active: false });
       currentTabId = tab.id;
 
-      // Wait for content script to send SCRAPE_RESULT or timeout after 12s
       const scrapeResult = await new Promise((resolve) => {
         const timeout = setTimeout(() => {
           resolve({ resultCount: null, url: targetUrl });
-        }, 12000);
+        }, 15000);
 
         const listener = (msg, sender) => {
           if (sender.tab && sender.tab.id === currentTabId && msg.action === 'SCRAPE_RESULT') {
@@ -129,38 +137,32 @@ async function processQueue() {
         chrome.runtime.onMessage.addListener(listener);
       });
 
-      // Close background tab
       if (currentTabId) {
         await chrome.tabs.remove(currentTabId).catch(() => {});
         currentTabId = null;
       }
 
-      // Update to Supabase via backend
       const count = scrapeResult.resultCount !== null ? scrapeResult.resultCount : 0;
       await updateKeywordResult(item.id, count, targetUrl);
+      addLog(`✓ "${item.keyword}" → ${count.toLocaleString('id-ID')} hasil`);
 
-      addLog(`✓ Selesai: "${item.keyword}" -> ${count.toLocaleString('id-ID')} hasil.`);
-
-      // Random delay 2-3.5s before next keyword
       if (i < pendingList.length - 1) {
         await sleep(Math.floor(Math.random() * 1500) + 2000);
       }
     }
 
-    chrome.storage.local.set({ status: 'Semua antrean selesai diproses! ✓' });
-    addLog('Semua antrean keyword berhasil disinkronisasi ke Data2Pro.');
+    chrome.storage.local.set({ status: 'Semua selesai! ✓' });
+    addLog('Semua keyword berhasil disinkronisasi.');
   } catch (err) {
     console.error('Queue processing error:', err);
     addLog(`Error: ${err.message}`);
-    chrome.storage.local.set({ status: `Terjadi kendala: ${err.message}` });
+    chrome.storage.local.set({ status: `Error: ${err.message}` });
   } finally {
     isProcessing = false;
   }
 }
 
-// Periodic auto-sync alarm every 20 seconds
-chrome.alarms.create('checkPendingKeywords', { periodInMinutes: 0.35 });
-
+// Auto-sync via alarm (minimum 1 minute for MV3)
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'checkPendingKeywords') {
     chrome.storage.local.get(['autoSync'], (data) => {
@@ -171,10 +173,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Listen for manual triggers from Popup
+// Manual trigger from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'START_SYNC') {
     processQueue();
-    sendResponse({ success: true, message: 'Sync started' });
+    sendResponse({ success: true });
   }
+  return true; // keep channel open for async
 });
