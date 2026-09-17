@@ -8,7 +8,8 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
 
   // Low competition: <1k (Video) or <10k (Image/Vector)
   const lowComp = keywords.filter((k) => {
-    const thresh = k.category === 'video' ? 1000 : 10000;
+    const isVid = (k.category || category) === 'video';
+    const thresh = isVid ? 1000 : 10000;
     return (
       k.result_count !== null &&
       k.result_count !== undefined &&
@@ -20,15 +21,17 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
   // Medium competition: 1k-10k (Video) or 10k-50k (Image/Vector)
   const medComp = keywords.filter((k) => {
     if (k.result_count === null || k.result_count === undefined) return false;
-    const low = k.category === 'video' ? 1000 : 10000;
-    const high = k.category === 'video' ? 10000 : 50000;
+    const isVid = (k.category || category) === 'video';
+    const low = isVid ? 1000 : 10000;
+    const high = isVid ? 10000 : 50000;
     return k.result_count >= low && k.result_count <= high;
   }).length;
 
   // High competition: >10k (Video) or >50k (Image/Vector)
   const highComp = keywords.filter((k) => {
     if (k.result_count === null || k.result_count === undefined) return false;
-    const high = k.category === 'video' ? 10000 : 50000;
+    const isVid = (k.category || category) === 'video';
+    const high = isVid ? 10000 : 50000;
     return k.result_count > high;
   }).length;
 

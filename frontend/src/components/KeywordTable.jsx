@@ -232,7 +232,7 @@ export default function KeywordTable({
           {/* Refresh Button */}
           {onRefresh && (
             <button
-              onClick={onRefresh}
+              onClick={() => onRefresh && onRefresh()}
               disabled={loading}
               title="Refresh Data"
               className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-all shrink-0"

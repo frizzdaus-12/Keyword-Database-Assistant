@@ -79,7 +79,7 @@ export default function DashboardPage() {
   // 2. Fetch Keywords from Supabase
   const fetchKeywords = useCallback(async (targetTab) => {
     if (!user) return;
-    const cat = targetTab || activeTabRef.current;
+    const cat = typeof targetTab === 'string' ? targetTab : activeTabRef.current;
     setLoadingData(true);
 
     try {
