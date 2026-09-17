@@ -110,7 +110,7 @@ async function processQueue() {
         const timer = setTimeout(() => {
           chrome.runtime.onMessage.removeListener(listener);
           resolve({ resultCount: null });
-        }, 8000);
+        }, 6000);
 
         function listener(msg, sender) {
           if (
@@ -127,19 +127,22 @@ async function processQueue() {
         chrome.runtime.onMessage.addListener(listener);
       });
 
-      // Close background tab
+      // Close background tab immediately
       if (currentTabId) {
         await chrome.tabs.remove(currentTabId).catch(() => {});
         currentTabId = null;
       }
 
-      const count = result.resultCount !== null ? result.resultCount : 0;
-      await updateKeywordResult(item.id, count, targetUrl);
-      addLog(`✓ "${item.keyword}" → ${count.toLocaleString('id-ID')} hasil`);
+      if (result.resultCount !== null && typeof result.resultCount === 'number') {
+        await updateKeywordResult(item.id, result.resultCount, targetUrl);
+        addLog(`✓ "${item.keyword}" → ${result.resultCount.toLocaleString('id-ID')} hasil`);
+      } else {
+        addLog(`⚠️ "${item.keyword}" → Belum terdeteksi (akan dicoba ulang nanti)`);
+      }
 
-      // Random delay between keywords
+      // Fast, safe delay between keywords (1s)
       if (i < pending.length - 1) {
-        await sleep(2000 + Math.floor(Math.random() * 1500));
+        await sleep(1000);
       }
     }
 
