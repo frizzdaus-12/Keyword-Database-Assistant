@@ -2,18 +2,31 @@
 
 import { Database, Zap, CheckCircle2, TrendingUp } from 'lucide-react';
 
-export default function StatsCards({ keywords = [] }) {
+export default function StatsCards({ keywords = [], category = 'image' }) {
   const total = keywords.length;
-  
-  // Low competition: result count > 0 and < 10,000
-  const lowComp = keywords.filter(
-    (k) => k.result_count !== null && k.result_count !== undefined && k.result_count > 0 && k.result_count < 10000
-  ).length;
+  const isVideo = category === 'video';
 
-  // Medium competition: 10,000 - 100,000
-  const medComp = keywords.filter(
-    (k) => k.result_count !== null && k.result_count >= 10000 && k.result_count <= 100000
-  ).length;
+  const lowThreshold = isVideo ? 1000 : 10000;
+  const medThreshold = isVideo ? 10000 : 100000;
+
+  // Low competition
+  const lowComp = keywords.filter((k) => {
+    const thresh = k.category === 'video' ? 1000 : 10000;
+    return (
+      k.result_count !== null &&
+      k.result_count !== undefined &&
+      k.result_count > 0 &&
+      k.result_count < thresh
+    );
+  }).length;
+
+  // Medium competition
+  const medComp = keywords.filter((k) => {
+    if (k.result_count === null || k.result_count === undefined) return false;
+    const low = k.category === 'video' ? 1000 : 10000;
+    const high = k.category === 'video' ? 10000 : 100000;
+    return k.result_count >= low && k.result_count <= high;
+  }).length;
 
   // Used count
   const usedCount = keywords.filter((k) => k.is_used).length;
@@ -40,7 +53,9 @@ export default function StatsCards({ keywords = [] }) {
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kompetisi Rendah</p>
           <div className="flex items-baseline gap-1.5 mt-0.5">
             <h3 className="text-xl sm:text-2xl font-bold text-emerald-600">{lowComp}</h3>
-            <span className="text-[11px] font-medium text-slate-400">(&lt;10k)</span>
+            <span className="text-[11px] font-medium text-slate-400">
+              {isVideo ? '(<1k)' : '(<10k)'}
+            </span>
           </div>
         </div>
       </div>
@@ -54,7 +69,9 @@ export default function StatsCards({ keywords = [] }) {
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kompetisi Sedang</p>
           <div className="flex items-baseline gap-1.5 mt-0.5">
             <h3 className="text-xl sm:text-2xl font-bold text-amber-600">{medComp}</h3>
-            <span className="text-[11px] font-medium text-slate-400">(10k-100k)</span>
+            <span className="text-[11px] font-medium text-slate-400">
+              {isVideo ? '(1k-10k)' : '(10k-100k)'}
+            </span>
           </div>
         </div>
       </div>

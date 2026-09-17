@@ -73,16 +73,20 @@ export default function DashboardPage() {
     };
   }, [router]);
 
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
   // 2. Fetch Keywords from Supabase
-  const fetchKeywords = useCallback(async () => {
+  const fetchKeywords = useCallback(async (targetTab) => {
     if (!user) return;
+    const cat = targetTab || activeTabRef.current;
     setLoadingData(true);
 
     try {
       const { data, error } = await supabase
         .from('keywords')
         .select('*')
-        .eq('category', activeTab)
+        .eq('category', cat)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -92,11 +96,11 @@ export default function DashboardPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [user, activeTab]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
-      fetchKeywords();
+      fetchKeywords(activeTab);
     }
   }, [user, activeTab, fetchKeywords]);
 
@@ -105,23 +109,30 @@ export default function DashboardPage() {
     (jobId) => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
+      let pollCount = 0;
       pollIntervalRef.current = setInterval(async () => {
+        pollCount++;
         try {
           const res = await fetch(`${BACKEND_URL}/api/jobs/${jobId}`);
-          if (!res.ok) return;
+          if (!res.ok) {
+            clearInterval(pollIntervalRef.current);
+            return;
+          }
 
           const data = await res.json();
           if (data.success && data.job) {
             setActiveJob(data.job);
 
-            // Refetch keywords on table to update newly scraped counts
-            fetchKeywords();
+            // Refetch keywords on current table
+            fetchKeywords(activeTabRef.current);
 
-            // Check if job finished or aborted
+            // Check if job finished or in extension mode (where backend is done immediately)
             if (
               data.job.status === 'completed' ||
               data.job.status === 'failed' ||
-              data.job.status === 'paused_due_to_block'
+              data.job.status === 'paused_due_to_block' ||
+              data.job.status === 'pending_extension' ||
+              pollCount >= 5
             ) {
               clearInterval(pollIntervalRef.current);
               setIsProcessing(false);
@@ -129,8 +140,10 @@ export default function DashboardPage() {
           }
         } catch (err) {
           console.warn('[Job Poll Error]:', err);
+          clearInterval(pollIntervalRef.current);
+          setIsProcessing(false);
         }
-      }, 2500);
+      }, 2000);
     },
     [fetchKeywords]
   );
@@ -173,9 +186,10 @@ export default function DashboardPage() {
       }
 
       setInputKeywords('');
-      fetchKeywords();
+      await fetchKeywords(activeTab);
+      setIsProcessing(false);
 
-      if (data.jobId) {
+      if (data.jobId && data.status !== 'pending_extension') {
         pollJobStatus(data.jobId);
       }
     } catch (err) {
@@ -404,7 +418,7 @@ export default function DashboardPage() {
         )}
 
         {/* Stats Metrics Cards */}
-        <StatsCards keywords={keywords} />
+        <StatsCards keywords={keywords} category={activeTab} />
 
         {/* Main Keywords Table */}
         <KeywordTable

@@ -47,10 +47,33 @@ export default function KeywordTable({
   };
 
   // Badge for competition level
-  const renderCompetitionBadge = (count) => {
+  const renderCompetitionBadge = (count, category = 'image') => {
     // Don't show badge if count is null, undefined, or 0 (no data yet)
     if (count === null || count === undefined || count === 0) return null;
 
+    if (category === 'video') {
+      if (count < 1000) {
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
+            🔥 Low Comp (&lt;1k)
+          </span>
+        );
+      } else if (count <= 10000) {
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
+            ⚡ Moderate (1k-10k)
+          </span>
+        );
+      } else {
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+            🔺 High Comp (&gt;10k)
+          </span>
+        );
+      }
+    }
+
+    // Default for Image and Vector
     if (count < 10000) {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
@@ -60,13 +83,13 @@ export default function KeywordTable({
     } else if (count <= 100000) {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
-          ⚡ Moderate
+          ⚡ Moderate (10k-100k)
         </span>
       );
     } else {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
-          🔺 High Comp
+          🔺 High Comp (&gt;100k)
         </span>
       );
     }
@@ -263,7 +286,7 @@ export default function KeywordTable({
                         <span className="font-bold text-slate-900 font-mono">
                           {formatCount(item.result_count)}
                         </span>
-                        {renderCompetitionBadge(item.result_count)}
+                        {renderCompetitionBadge(item.result_count, item.category)}
                       </div>
                     </td>
 
