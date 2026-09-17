@@ -1,47 +1,35 @@
-// Data2Pro Background Service Worker
+// ============================================================
+// Data2Pro Background Service Worker (Manifest V3)
+// ============================================================
+
 let isProcessing = false;
 let currentTabId = null;
-let backendUrl = 'http://localhost:5000';
 
-// Initialize default settings on install
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({
-    autoSync: true,
-    backendUrl: 'http://localhost:5000',
-    status: 'Siap digunakan',
-    logs: ['Ekstensi Data2Pro berhasil dipasang!']
+// -----------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------
+
+function getBackendUrl() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['backendUrl'], (data) => {
+      resolve((data.backendUrl || 'http://localhost:5000').replace(/\/$/, ''));
+    });
   });
-
-  // Create alarm INSIDE onInstalled to avoid duplicate creation issues
-  chrome.alarms.create('checkPendingKeywords', { periodInMinutes: 1 });
-});
-
-// Also create alarm on startup (in case service worker restarts)
-chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.get('checkPendingKeywords', (alarm) => {
-    if (!alarm) {
-      chrome.alarms.create('checkPendingKeywords', { periodInMinutes: 1 });
-    }
-  });
-});
-
-// Ensure alarm exists when service worker wakes up
-chrome.alarms.get('checkPendingKeywords', (alarm) => {
-  if (!alarm) {
-    chrome.alarms.create('checkPendingKeywords', { periodInMinutes: 1 });
-  }
-});
+}
 
 function addLog(message) {
   const time = new Date().toLocaleTimeString('id-ID');
-  const logEntry = `[${time}] ${message}`;
-  console.log(logEntry);
-
+  const entry = `[${time}] ${message}`;
+  console.log(entry);
   chrome.storage.local.get(['logs'], (data) => {
-    const logs = data.logs || [];
-    logs.unshift(logEntry);
+    const logs = Array.isArray(data.logs) ? data.logs : [];
+    logs.unshift(entry);
     chrome.storage.local.set({ logs: logs.slice(0, 30) });
   });
+}
+
+function setStatus(text) {
+  chrome.storage.local.set({ status: text });
 }
 
 function sleep(ms) {
@@ -49,135 +37,176 @@ function sleep(ms) {
 }
 
 function buildSearchUrl(keyword, category) {
-  const encoded = encodeURIComponent(keyword.trim());
-  switch (category) {
-    case 'video':
-      return `https://stock.adobe.com/search/video?k=${encoded}`;
-    case 'vector':
-      return `https://stock.adobe.com/search/vectors?k=${encoded}`;
-    case 'image':
-    default:
-      return `https://stock.adobe.com/search/images?k=${encoded}`;
-  }
+  const q = encodeURIComponent(keyword.trim());
+  if (category === 'video')  return `https://stock.adobe.com/search/video?k=${q}`;
+  if (category === 'vector') return `https://stock.adobe.com/search/vectors?k=${q}`;
+  return `https://stock.adobe.com/search/images?k=${q}`;
 }
+
+// -----------------------------------------------------------
+// API calls to backend
+// -----------------------------------------------------------
 
 async function fetchPendingKeywords() {
   try {
-    const data = await chrome.storage.local.get(['backendUrl']);
-    const baseUrl = (data.backendUrl || backendUrl).replace(/\/$/, '');
-
-    const res = await fetch(`${baseUrl}/api/keywords/pending`);
+    const base = await getBackendUrl();
+    const res = await fetch(`${base}/api/keywords/pending`);
     if (!res.ok) return [];
     const json = await res.json();
-    return json.keywords || [];
+    return Array.isArray(json.keywords) ? json.keywords : [];
   } catch (err) {
-    console.error('Failed to fetch pending keywords:', err.message);
+    console.error('[fetchPendingKeywords]', err.message);
     return [];
   }
 }
 
 async function updateKeywordResult(id, resultCount, searchUrl) {
   try {
-    const data = await chrome.storage.local.get(['backendUrl']);
-    const baseUrl = (data.backendUrl || backendUrl).replace(/\/$/, '');
-
-    const res = await fetch(`${baseUrl}/api/keywords/update-result`, {
+    const base = await getBackendUrl();
+    const res = await fetch(`${base}/api/keywords/update-result`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, resultCount, searchUrl })
     });
     return res.ok;
   } catch (err) {
-    console.error('Failed to update keyword result:', err.message);
+    console.error('[updateKeywordResult]', err.message);
     return false;
   }
 }
+
+// -----------------------------------------------------------
+// Main queue processor
+// -----------------------------------------------------------
 
 async function processQueue() {
   if (isProcessing) return;
   isProcessing = true;
 
   try {
-    chrome.storage.local.set({ status: 'Mengecek antrean keyword...' });
-    const pendingList = await fetchPendingKeywords();
+    setStatus('Mengecek antrean keyword...');
+    const pending = await fetchPendingKeywords();
 
-    if (pendingList.length === 0) {
-      chrome.storage.local.set({ status: 'Tidak ada antrean baru' });
-      isProcessing = false;
+    if (pending.length === 0) {
+      setStatus('Tidak ada antrean baru');
       return;
     }
 
-    addLog(`${pendingList.length} keyword pending ditemukan. Memulai...`);
+    addLog(`${pending.length} keyword pending ditemukan. Memulai...`);
 
-    for (let i = 0; i < pendingList.length; i++) {
-      const item = pendingList[i];
+    for (let i = 0; i < pending.length; i++) {
+      const item = pending[i];
       const targetUrl = buildSearchUrl(item.keyword, item.category);
 
-      chrome.storage.local.set({
-        status: `Memproses (${i + 1}/${pendingList.length}): "${item.keyword}"`
-      });
+      setStatus(`Memproses (${i + 1}/${pending.length}): "${item.keyword}"`);
       addLog(`Membuka: "${item.keyword}" (${item.category})...`);
 
+      // Open Adobe Stock in a background tab
       const tab = await chrome.tabs.create({ url: targetUrl, active: false });
       currentTabId = tab.id;
 
-      const scrapeResult = await new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          resolve({ resultCount: null, url: targetUrl });
+      // Wait for content.js to send SCRAPE_RESULT (max 15s)
+      const result = await new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          chrome.runtime.onMessage.removeListener(listener);
+          resolve({ resultCount: null });
         }, 15000);
 
-        const listener = (msg, sender) => {
-          if (sender.tab && sender.tab.id === currentTabId && msg.action === 'SCRAPE_RESULT') {
-            clearTimeout(timeout);
+        function listener(msg, sender) {
+          if (
+            msg.action === 'SCRAPE_RESULT' &&
+            sender.tab &&
+            sender.tab.id === currentTabId
+          ) {
+            clearTimeout(timer);
             chrome.runtime.onMessage.removeListener(listener);
             resolve(msg);
           }
-        };
+        }
 
         chrome.runtime.onMessage.addListener(listener);
       });
 
+      // Close background tab
       if (currentTabId) {
         await chrome.tabs.remove(currentTabId).catch(() => {});
         currentTabId = null;
       }
 
-      const count = scrapeResult.resultCount !== null ? scrapeResult.resultCount : 0;
+      const count = result.resultCount !== null ? result.resultCount : 0;
       await updateKeywordResult(item.id, count, targetUrl);
       addLog(`✓ "${item.keyword}" → ${count.toLocaleString('id-ID')} hasil`);
 
-      if (i < pendingList.length - 1) {
-        await sleep(Math.floor(Math.random() * 1500) + 2000);
+      // Random delay between keywords
+      if (i < pending.length - 1) {
+        await sleep(2000 + Math.floor(Math.random() * 1500));
       }
     }
 
-    chrome.storage.local.set({ status: 'Semua selesai! ✓' });
+    setStatus('Semua antrean selesai! ✓');
     addLog('Semua keyword berhasil disinkronisasi.');
   } catch (err) {
-    console.error('Queue processing error:', err);
+    console.error('[processQueue]', err);
     addLog(`Error: ${err.message}`);
-    chrome.storage.local.set({ status: `Error: ${err.message}` });
+    setStatus(`Error: ${err.message}`);
   } finally {
     isProcessing = false;
   }
 }
 
-// Auto-sync via alarm (minimum 1 minute for MV3)
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'checkPendingKeywords') {
-    chrome.storage.local.get(['autoSync'], (data) => {
-      if (data.autoSync && !isProcessing) {
-        processQueue();
-      }
-    });
-  }
+// -----------------------------------------------------------
+// Alarm: created once on install, recreated on startup
+// -----------------------------------------------------------
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.set({
+    autoSync:   true,
+    backendUrl: 'http://localhost:5000',
+    status:     'Siap digunakan',
+    logs:       ['Ekstensi Data2Pro berhasil dipasang!']
+  });
+  // Create periodic alarm (Chrome MV3 minimum = 1 minute)
+  chrome.alarms.create('d2p_sync', { periodInMinutes: 1 });
 });
 
-// Manual trigger from popup
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.get('d2p_sync', (alarm) => {
+    if (!alarm) chrome.alarms.create('d2p_sync', { periodInMinutes: 1 });
+  });
+});
+
+// Recreate alarm if missing (service worker wake-up)
+chrome.alarms.get('d2p_sync', (alarm) => {
+  if (!alarm) chrome.alarms.create('d2p_sync', { periodInMinutes: 1 });
+});
+
+// -----------------------------------------------------------
+// Alarm listener
+// -----------------------------------------------------------
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== 'd2p_sync') return;
+  chrome.storage.local.get(['autoSync'], (data) => {
+    if (data.autoSync && !isProcessing) {
+      processQueue().catch((err) => {
+        console.error('[alarm] processQueue error:', err);
+        addLog(`⚠️ Sync error: ${err.message}`);
+      });
+    }
+  });
+});
+
+// -----------------------------------------------------------
+// Message listener (from popup)
+// -----------------------------------------------------------
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'START_SYNC') {
-    processQueue();
+    processQueue().catch((err) => {
+      console.error('[manual] processQueue error:', err);
+      addLog(`⚠️ Manual sync error: ${err.message}`);
+    });
     sendResponse({ success: true });
   }
-  return true; // keep channel open for async
+  return true;
 });
