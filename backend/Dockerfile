@@ -1,5 +1,5 @@
-# Stage 1: Base image with Node.js 20 on Debian slim (compatible with Playwright)
-FROM node:20-slim
+# Stage 1: Base image with Node.js 22 LTS on Debian slim (native WebSocket support for Supabase & Playwright)
+FROM node:22-slim
 
 # Install system dependencies required by Chromium/Playwright
 RUN apt-get update && apt-get install -y \

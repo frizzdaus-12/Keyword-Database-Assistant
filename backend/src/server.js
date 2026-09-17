@@ -73,10 +73,10 @@ app.use((err, req, res, next) => {
 });
 
 // Start listening
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`=========================================`);
   console.log(`🚀 Data2Pro Backend is running on port ${PORT}`);
-  console.log(`📡 URL: http://localhost:${PORT}`);
+  console.log(`📡 URL: http://0.0.0.0:${PORT}`);
   console.log(`=========================================`);
 });
 
