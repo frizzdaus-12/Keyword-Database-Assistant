@@ -234,6 +234,69 @@ export default function DashboardPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // 9. Handle Delete Keyword
+  const handleDeleteKeyword = async (id) => {
+    // Optimistic UI update
+    setKeywords((prev) => prev.filter((item) => item.id !== id));
+
+    try {
+      const { error } = await supabase
+        .from('keywords')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('[Delete Keyword Error]:', err);
+      fetchKeywords();
+    }
+  };
+
+  // 10. Handle Delete Duplicate Keywords in current category
+  const handleDeleteDuplicates = async () => {
+    const seen = new Map();
+    const duplicateIds = [];
+
+    // Identify duplicates (case insensitive)
+    for (const item of keywords) {
+      const norm = item.keyword.trim().toLowerCase();
+      if (seen.has(norm)) {
+        const existing = seen.get(norm);
+        // Keep the one with valid result_count, delete the other
+        if (item.result_count !== null && existing.result_count === null) {
+          duplicateIds.push(existing.id);
+          seen.set(norm, item);
+        } else {
+          duplicateIds.push(item.id);
+        }
+      } else {
+        seen.set(norm, item);
+      }
+    }
+
+    if (duplicateIds.length === 0) return;
+
+    if (!confirm(`Hapus ${duplicateIds.length} kata kunci duplikat pada tab ini?`)) {
+      return;
+    }
+
+    // Optimistic UI update
+    setKeywords((prev) => prev.filter((item) => !duplicateIds.includes(item.id)));
+
+    try {
+      const { error } = await supabase
+        .from('keywords')
+        .delete()
+        .in('id', duplicateIds);
+
+      if (error) throw error;
+      fetchKeywords();
+    } catch (err) {
+      console.error('[Delete Duplicates Error]:', err);
+      fetchKeywords();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Top Navigation Header */}
@@ -427,6 +490,8 @@ export default function DashboardPage() {
           onRefresh={fetchKeywords}
           onToggleMark={handleToggleMark}
           onOpenAiVariants={handleOpenAiVariants}
+          onDeleteKeyword={handleDeleteKeyword}
+          onDeleteDuplicates={handleDeleteDuplicates}
         />
       </main>
 

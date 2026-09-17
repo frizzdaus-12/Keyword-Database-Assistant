@@ -6,7 +6,7 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
   const total = keywords.length;
   const isVideo = category === 'video';
 
-  // Low competition
+  // Low competition: <1k (Video) or <10k (Image/Vector)
   const lowComp = keywords.filter((k) => {
     const thresh = k.category === 'video' ? 1000 : 10000;
     return (
@@ -17,18 +17,18 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
     );
   }).length;
 
-  // Medium competition
+  // Medium competition: 1k-10k (Video) or 10k-50k (Image/Vector)
   const medComp = keywords.filter((k) => {
     if (k.result_count === null || k.result_count === undefined) return false;
     const low = k.category === 'video' ? 1000 : 10000;
-    const high = k.category === 'video' ? 10000 : 100000;
+    const high = k.category === 'video' ? 10000 : 50000;
     return k.result_count >= low && k.result_count <= high;
   }).length;
 
-  // High competition
+  // High competition: >10k (Video) or >50k (Image/Vector)
   const highComp = keywords.filter((k) => {
     if (k.result_count === null || k.result_count === undefined) return false;
-    const high = k.category === 'video' ? 10000 : 100000;
+    const high = k.category === 'video' ? 10000 : 50000;
     return k.result_count > high;
   }).length;
 
@@ -74,7 +74,7 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
           <div className="flex items-baseline gap-1 mt-0.5">
             <h3 className="text-xl sm:text-2xl font-bold text-amber-600">{medComp}</h3>
             <span className="text-[10px] sm:text-[11px] font-medium text-slate-400">
-              {isVideo ? '(1k-10k)' : '(10k-100k)'}
+              {isVideo ? '(1k-10k)' : '(10k-50k)'}
             </span>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function StatsCards({ keywords = [], category = 'image' }) {
           <div className="flex items-baseline gap-1 mt-0.5">
             <h3 className="text-xl sm:text-2xl font-bold text-rose-600">{highComp}</h3>
             <span className="text-[10px] sm:text-[11px] font-medium text-slate-400">
-              {isVideo ? '(>10k)' : '(>100k)'}
+              {isVideo ? '(>10k)' : '(>50k)'}
             </span>
           </div>
         </div>

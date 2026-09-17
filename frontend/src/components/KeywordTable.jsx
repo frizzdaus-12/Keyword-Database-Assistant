@@ -9,10 +9,10 @@ import {
   CheckCircle2,
   Circle,
   Search,
-  Filter,
-  ArrowUpDown,
   RefreshCw,
-  Clock
+  Clock,
+  Trash2,
+  CopyX
 } from 'lucide-react';
 
 export default function KeywordTable({
@@ -20,18 +20,48 @@ export default function KeywordTable({
   onToggleMark,
   onOpenAiVariants,
   onRefresh,
+  onDeleteKeyword,
+  onDeleteDuplicates,
   loading = false
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'unused' | 'used'
   const [copiedId, setCopiedId] = useState(null);
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'lowest_count' | 'highest_count' | 'alphabetical'
+  const [deletingId, setDeletingId] = useState(null);
 
   const handleCopy = (text, id) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1500);
   };
+
+  const handleDelete = async (id, keyword) => {
+    if (confirm(`Yakin ingin menghapus kata kunci "${keyword}"?`)) {
+      setDeletingId(id);
+      try {
+        if (onDeleteKeyword) {
+          await onDeleteKeyword(id);
+        }
+      } finally {
+        setDeletingId(null);
+      }
+    }
+  };
+
+  // Count duplicate keywords in current list (case-insensitive)
+  const duplicateCount = (() => {
+    const counts = new Map();
+    for (const k of keywords) {
+      const norm = k.keyword.trim().toLowerCase();
+      counts.set(norm, (counts.get(norm) || 0) + 1);
+    }
+    let dupes = 0;
+    for (const count of counts.values()) {
+      if (count > 1) dupes += (count - 1);
+    }
+    return dupes;
+  })();
 
   // Format number to readable string
   const formatCount = (count) => {
@@ -73,23 +103,23 @@ export default function KeywordTable({
       }
     }
 
-    // Default for Image and Vector
+    // Default for Image and Vector (Low: <10k, Moderate: 10k-50k, High: >50k)
     if (count < 10000) {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
           🔥 Low Comp (&lt;10k)
         </span>
       );
-    } else if (count <= 100000) {
+    } else if (count <= 50000) {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
-          ⚡ Moderate (10k-100k)
+          ⚡ Moderate (10k-50k)
         </span>
       );
     } else {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
-          🔺 High Comp (&gt;100k)
+          🔺 High Comp (&gt;50k)
         </span>
       );
     }
@@ -141,6 +171,18 @@ export default function KeywordTable({
 
         {/* Filters & Actions */}
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end overflow-x-auto pb-1 sm:pb-0">
+          {/* Delete Duplicates Button */}
+          {duplicateCount > 0 && onDeleteDuplicates && (
+            <button
+              onClick={onDeleteDuplicates}
+              title={`Hapus ${duplicateCount} kata kunci yang duplikat`}
+              className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-all shrink-0"
+            >
+              <CopyX className="w-4 h-4 text-rose-600" />
+              <span>Hapus Duplikat ({duplicateCount})</span>
+            </button>
+          )}
+
           {/* Status Filter */}
           <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
             <button
@@ -211,7 +253,7 @@ export default function KeywordTable({
               <th className="py-3.5 px-4 w-28">Kategori</th>
               <th className="py-3.5 px-4 w-44">Hasil Pencarian</th>
               <th className="py-3.5 px-4 w-28">Status</th>
-              <th className="py-3.5 px-4 text-center w-56">Aksi</th>
+              <th className="py-3.5 px-4 text-center w-64">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
@@ -359,6 +401,19 @@ export default function KeywordTable({
                           <Sparkles className="w-4 h-4 text-amber-300" />
                           <span>Variasi AI</span>
                         </button>
+
+                        {/* 5. Delete Button */}
+                        {onDeleteKeyword && (
+                          <button
+                            onClick={() => handleDelete(item.id, item.keyword)}
+                            disabled={deletingId === item.id}
+                            title="Hapus kata kunci ini"
+                            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-xs font-semibold flex items-center gap-1 transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span className="hidden xl:inline">Hapus</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
