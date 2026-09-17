@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabaseAdmin } from '../config/supabase.js';
 import dotenv from 'dotenv';
 
@@ -6,8 +6,8 @@ dotenv.config();
 
 const apiKey = process.env.GEMINI_API_KEY;
 
-// Initialize Google Gen AI client
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Initialize Google Generative AI client
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 /**
  * Clean markdown code fences (e.g. ```json ... ```) from string
@@ -23,13 +23,13 @@ export function cleanJsonFence(text) {
 }
 
 /**
- * Generate 10 keyword variations using Gemini 2.5 Flash
+ * Generate 10 keyword variations using Gemini 2.5 Flash / 1.5 Flash
  * @param {string} keyword Target seed keyword
  * @param {string} category 'video' | 'vector' | 'image'
  * @param {string} keywordId Optional ID to auto-save to keyword_variants table
  */
 export async function generateKeywordVariants(keyword, category, keywordId = null) {
-  if (!apiKey) {
+  if (!apiKey || !genAI) {
     throw new Error('GEMINI_API_KEY is not configured in backend environment variables.');
   }
 
@@ -38,16 +38,47 @@ export async function generateKeywordVariants(keyword, category, keywordId = nul
   try {
     console.log(`[Gemini AI] Generating variations for keyword: "${keyword}" (category: ${category})`);
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-        responseMimeType: 'application/json'
-      }
-    });
+    // Use gemini-2.5-flash or fallback to gemini-1.5-flash
+    let modelName = 'gemini-2.5-flash';
+    let model;
+    
+    try {
+      model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.7,
+          responseMimeType: 'application/json'
+        }
+      });
+    } catch (mErr) {
+      modelName = 'gemini-1.5-flash';
+      model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.7,
+          responseMimeType: 'application/json'
+        }
+      });
+    }
 
-    const rawText = response.text;
+    let result;
+    try {
+      result = await model.generateContent(prompt);
+    } catch (callErr) {
+      // Fallback to gemini-1.5-flash if 2.5-flash is not accessible with key
+      console.warn(`[Gemini AI] Call failed on ${modelName}: ${callErr.message}. Retrying with gemini-1.5-flash...`);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: 'gemini-1.5-flash',
+        generationConfig: {
+          temperature: 0.7,
+          responseMimeType: 'application/json'
+        }
+      });
+      result = await fallbackModel.generateContent(prompt);
+    }
+
+    const response = await result.response;
+    const rawText = response.text();
     const cleanedText = cleanJsonFence(rawText);
     
     let variants = [];
