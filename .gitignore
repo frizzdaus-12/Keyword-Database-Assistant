@@ -12,15 +12,22 @@ dist/
 build/
 */build/
 
-# Environment files
+# Environment files — NEVER commit these
 .env
 .env.local
+.env.development
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
 */.env
 */.env.local
 */.env.*.local
+*/.env.development
+*/.env.production
+# Always allow example files
+!.env.example
+!**/.env.example
 
 # Logs
 npm-debug.log*
@@ -45,3 +52,11 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+# Playwright browser binaries (downloaded per-environment)
+backend/node_modules/
+**/ms-playwright/
+
+# Temporary test files
+backend/test_*.mjs
+backend/test_*.js
+backend/src/test_*.js

@@ -38,37 +38,26 @@ export async function generateKeywordVariants(keyword, category, keywordId = nul
   try {
     console.log(`[Gemini AI] Generating variations for keyword: "${keyword}" (category: ${category})`);
 
-    // Use gemini-2.5-flash or fallback to gemini-1.5-flash
-    let modelName = 'gemini-2.5-flash';
+    // Use gemini-3.6-flash (latest stable model)
+    let modelName = 'gemini-3.6-flash';
     let model;
     
-    try {
-      model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          temperature: 0.7,
-          responseMimeType: 'application/json'
-        }
-      });
-    } catch (mErr) {
-      modelName = 'gemini-1.5-flash';
-      model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          temperature: 0.7,
-          responseMimeType: 'application/json'
-        }
-      });
-    }
+    model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        temperature: 0.7,
+        responseMimeType: 'application/json'
+      }
+    });
 
     let result;
     try {
       result = await model.generateContent(prompt);
     } catch (callErr) {
-      // Fallback to gemini-1.5-flash if 2.5-flash is not accessible with key
-      console.warn(`[Gemini AI] Call failed on ${modelName}: ${callErr.message}. Retrying with gemini-1.5-flash...`);
+      // Fallback to gemini-3.5-flash-lite if primary fails
+      console.warn(`[Gemini AI] Call failed on ${modelName}: ${callErr.message}. Retrying with gemini-3.5-flash-lite...`);
       const fallbackModel = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.5-flash-lite',
         generationConfig: {
           temperature: 0.7,
           responseMimeType: 'application/json'

@@ -10,10 +10,32 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS for frontend requests (support localhost and Vercel production domains)
+// Parse allowed origins from ALLOWED_ORIGINS env var (comma-separated list)
+// Falls back to permissive dev mode if not set
+const buildAllowedOrigins = () => {
+  const envOrigins = process.env.ALLOWED_ORIGINS;
+  const defaults = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    `chrome-extension://pcbpgghengakafkklhljpndjpajgjphc`
+  ];
+  if (!envOrigins) return defaults;
+  const parsed = envOrigins.split(',').map((o) => o.trim()).filter(Boolean);
+  return [...new Set([...defaults, ...parsed])];
+};
+
+const ALLOWED_ORIGINS = buildAllowedOrigins();
+
 app.use(
   cors({
-    origin: true, // Reflect request origin or specify allowed frontend domains
+    origin: (origin, callback) => {
+      // Allow requests with no Origin header (e.g., server-to-server, curl, Playwright)
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      // Allow any chrome-extension:// origin dynamically
+      if (origin.startsWith('chrome-extension://')) return callback(null, true);
+      callback(new Error(`CORS: Origin "${origin}" is not allowed.`));
+    },
     credentials: true
   })
 );
