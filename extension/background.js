@@ -110,7 +110,7 @@ async function processQueue() {
         const timer = setTimeout(() => {
           chrome.runtime.onMessage.removeListener(listener);
           resolve({ resultCount: null });
-        }, 15000);
+        }, 8000);
 
         function listener(msg, sender) {
           if (

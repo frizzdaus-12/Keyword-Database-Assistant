@@ -390,13 +390,15 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Abort / Block Notification Banner */}
+        {/* Extension Info Banner - replaces old Playwright block warning */}
         {activeJob && activeJob.status === 'paused_due_to_block' && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-xs sm:text-sm flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-blue-800 text-xs sm:text-sm flex items-start gap-3">
+            <span className="text-lg shrink-0">🧩</span>
             <div>
-              <p className="font-bold">Pemberitahuan Proteksi Adobe Stock</p>
-              <p className="mt-0.5 text-amber-700">{activeJob.errorMessage}</p>
+              <p className="font-bold">Gunakan Ekstensi Chrome Data2Pro</p>
+              <p className="mt-0.5 text-blue-700">
+                Scraping server-side terdeteksi oleh Adobe Stock. Aktifkan ekstensi <strong>Data2Pro Helper</strong> di browser Anda agar pencarian berjalan otomatis melalui sesi browser asli Anda.
+              </p>
             </div>
           </div>
         )}
