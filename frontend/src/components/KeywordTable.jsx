@@ -48,7 +48,8 @@ export default function KeywordTable({
 
   // Badge for competition level
   const renderCompetitionBadge = (count) => {
-    if (count === null || count === undefined) return null;
+    // Don't show badge if count is null, undefined, or 0 (no data yet)
+    if (count === null || count === undefined || count === 0) return null;
 
     if (count < 10000) {
       return (
@@ -64,8 +65,8 @@ export default function KeywordTable({
       );
     } else {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-          High Comp
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+          🔺 High Comp
         </span>
       );
     }

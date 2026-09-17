@@ -7,7 +7,7 @@ export default function StatsCards({ keywords = [] }) {
   
   // Low competition: result count > 0 and < 10,000
   const lowComp = keywords.filter(
-    (k) => k.result_count !== null && k.result_count !== undefined && k.result_count < 10000
+    (k) => k.result_count !== null && k.result_count !== undefined && k.result_count > 0 && k.result_count < 10000
   ).length;
 
   // Medium competition: 10,000 - 100,000
